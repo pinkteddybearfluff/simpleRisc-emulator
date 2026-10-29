@@ -4,6 +4,13 @@
 
 #include "../src/utils.h"
 
+static inline int32_t u32_to_d32(uint32_t value)
+{
+    return (value > INT32_MAX)
+               ? -(int32_t)(UINT32_MAX - value) - 1
+               : (int32_t)value;
+}
+
 bool execute(CPU* cpu, Memory* mem, const DecodedInstr instr)
 {
     const uint32_t immx = sign_extend(instr.imm, instr.mode);
@@ -30,40 +37,47 @@ bool execute(CPU* cpu, Memory* mem, const DecodedInstr instr)
         cpu->pc += 4;
         return true;
     case OP_MUL:
-        if (instr.hasImm)
-            cpu->regs[instr.rd] = cpu->regs[instr.rs1] * immx;
-        else
-            cpu->regs[instr.rd] = cpu->regs[instr.rs1] * cpu->regs[instr.rs2];
-        cpu->pc += 4;
-        return true;
+        {
+            int32_t multiplier;
+            if (instr.hasImm)
+                multiplier = u32_to_d32(immx);
+            else
+                multiplier = u32_to_d32(cpu->regs[instr.rs2]);
+            cpu->regs[instr.rd] = (uint32_t)(u32_to_d32(cpu->regs[instr.rs1]) * multiplier);
+            cpu->pc += 4;
+            return true;
+        }
     case OP_DIV:
-        if (instr.hasImm)
-            cpu->regs[instr.rd] = cpu->regs[instr.rs1] / immx;
-        else
-            cpu->regs[instr.rd] = cpu->regs[instr.rs1] / cpu->regs[instr.rs2];
-        cpu->pc += 4;
-        return true;
+        {
+            int32_t divisor;
+            if (instr.hasImm)
+                divisor = u32_to_d32(immx);
+            else
+                divisor = u32_to_d32(cpu->regs[instr.rs2]);
+            cpu->regs[instr.rd] = (uint32_t)(u32_to_d32(cpu->regs[instr.rs1]) / divisor);
+            cpu->pc += 4;
+            return true;
+        }
     case OP_MOD:
-        if (instr.hasImm)
-            cpu->regs[instr.rd] = cpu->regs[instr.rs1] % immx;
-        else
-            cpu->regs[instr.rd] = cpu->regs[instr.rs1] % cpu->regs[instr.rs2];
-        cpu->pc += 4;
-        return true;
+        {
+            int32_t divisor;
+            if (instr.hasImm)
+                divisor = u32_to_d32(immx);
+            else
+                divisor = u32_to_d32(cpu->regs[instr.rs2]);
+            cpu->regs[instr.rd] = (uint32_t)(u32_to_d32(cpu->regs[instr.rs1]) % divisor);
+            cpu->pc += 4;
+            return true;
+        }
     case OP_CMP:
         {
-            int32_t op1 = (cpu->regs[instr.rs1] > INT32_MAX)
-                              ? -(int32_t)(UINT32_MAX - cpu->regs[instr.rs1]) - 1
-                              : (int32_t)cpu->regs[instr.rs1];
+            const int32_t op1 = u32_to_d32(cpu->regs[instr.rs1]);
             int32_t op2;
             if (instr.hasImm)
-                op2 = (immx > INT32_MAX)
-                          ? -(int32_t)(UINT32_MAX - immx) - 1
-                          : (int32_t)immx;
+                op2 = u32_to_d32(immx);
             else
-                op2 = (cpu->regs[instr.rs2] > INT32_MAX)
-                          ? -(int32_t)(UINT32_MAX - cpu->regs[instr.rs2]) - 1
-                          : (int32_t)cpu->regs[instr.rs2];
+                op2 = u32_to_d32(cpu->regs[instr.rs2]);
+            printf("op1: %d op2: %d\n", op1, op2);
             if (op1 == op2)
             {
                 cpu->equal_flag = true;
@@ -137,36 +151,56 @@ bool execute(CPU* cpu, Memory* mem, const DecodedInstr instr)
         cpu->pc += 4;
         return true;
     case OP_ASR:
-        const bool sign_bit = (cpu->regs[instr.rs1] >> 31) & 1u;
-        if (instr.hasImm)
         {
-            assert(immx < 32u);
-            const uint32_t mask = (bit_insert(0x00, immx, immx, 1) - 1) << (32u -
-                immx);
-            cpu->regs[instr.rd] = (cpu->regs[instr.rs1] >> immx) | mask;
+            const bool sign_bit = (cpu->regs[instr.rs1] >> 31) & 1u;
+            uint32_t shift_value;
+            if (instr.hasImm)
+            {
+                shift_value = immx;
+            }
+            else
+            {
+                shift_value = cpu->regs[instr.rs2];
+            }
+            assert(shift_value<32u);
+
+            if (sign_bit)
+            {
+                const uint32_t mask = ((1u << shift_value) - 1u) << (32u -
+                    shift_value);
+                cpu->regs[instr.rd] = (cpu->regs[instr.rs1] >> shift_value) | mask;
+            }
+            else
+            {
+                cpu->regs[instr.rd] = cpu->regs[instr.rs1] >> shift_value;
+            }
+
+            cpu->pc += 4;
+            return true;
         }
-        else
-        {
-            assert(cpu->regs[instr.rs2] < 32u);
-            const uint32_t mask = (bit_insert(0x00, cpu->regs[instr.rs2], cpu->regs[instr.rs2], 1) - 1) << (32u -
-                cpu->regs[instr.rs2]);
-            cpu->regs[instr.rd] = cpu->regs[instr.rs1] >> cpu->regs[instr.rs2];
-        }
-        cpu->pc += 4;
-        return true;
     case OP_NOP:
         cpu->pc += 4;
         return true;
     case OP_LD:
-        assert(instr.rs1 + immx< DATA_ADDR_H && instr.rs1 >= DATA_ADDR_L);
-        cpu->regs[instr.rd] = mem->mem[instr.rs1 + immx];
+        fprintf(stderr, "Address: %u + %d\n", cpu->regs[instr.rs1], immx);
+        assert(
+            (cpu->regs[instr.rs1] + immx< DATA_ADDR_H && cpu->regs[instr.rs1] + immx >= DATA_ADDR_L) ||
+            (cpu->regs[instr.rs1] + immx< STACK_ADDR_H &&cpu->regs[instr.rs1] + immx >= STACK_ADDR_L));
+
+        cpu->regs[instr.rd] = mem_read_dword(mem, cpu->regs[instr.rs1] + immx);
+        cpu->pc += 4;
         return true;
     case OP_ST:
-        assert(instr.rs1 + immx<= DATA_ADDR_H && instr.rs1 >= DATA_ADDR_L);
-        mem->mem[instr.rs1 + immx] = cpu->regs[instr.rd];
+        assert(
+            (cpu->regs[instr.rs1] + immx< DATA_ADDR_H && cpu->regs[instr.rs1] + immx >= DATA_ADDR_L) ||
+            (cpu->regs[instr.rs1] + immx< STACK_ADDR_H &&cpu->regs[instr.rs1] + immx >= STACK_ADDR_L));
+        // mem->mem[instr.rs1 + immx] = cpu->regs[instr.rd];
+        mem_write_dword(mem, cpu->regs[instr.rs1] + immx, cpu->regs[instr.rd]);
+        cpu->pc += 4;
         return true;
     case OP_BEQ:
-        assert(cpu->pc + offset <= TEXT_ADDR_H && cpu->pc + offset>= TEXT_ADDR_L);
+        fprintf(stderr, "%d + %d = %d\n", cpu->pc, offset, cpu->pc + offset);
+        assert(cpu->pc + offset <= TEXT_ADDR_H && cpu->pc + offset >= TEXT_ADDR_L);
         if (cpu->equal_flag)cpu->pc += offset;
         else cpu->pc += 4;
         return true;

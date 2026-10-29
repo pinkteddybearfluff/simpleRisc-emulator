@@ -18,17 +18,20 @@ struct labels
 };
 
 
-uint32_t get_branch_target(const struct labels label_table[], const char label[], const size_t lc)
+int32_t get_branch_target(const struct labels label_table[], const char label[], const size_t lc)
 {
+    fprintf(stderr, "Inside get branch target\n");
+
     for (size_t i = 0; i < lc; ++i)
     {
         size_t length = strlen(label_table[i].label);
         if (!strncmp(label, label_table[i].label, length))
         {
-            return label_table[i].target_addr;
+            fprintf(stderr, "Label = %s Target = %d\n", label_table[i].label, label_table[i].target_addr);
+            return (int32_t)label_table[i].target_addr;
         }
     }
-    return (uint32_t)-1;
+    return -1;
 }
 
 bool str_to_imm(const char* str, uint16_t* imm)
@@ -69,13 +72,16 @@ bool str_to_imm(const char* str, uint16_t* imm)
     return true;
 }
 
-uint32_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[MAX_TOKEN_LIMIT][MAX_TOKEN_SIZE],
-                       bool has_label, size_t token_no, const uint32_t ic, const struct labels label_table[],
-                       const size_t lc)
+bool get_raw_instr(const InstructionInfo* instr_info, const char tokens[MAX_TOKEN_LIMIT][MAX_TOKEN_SIZE],
+                   const bool has_label,
+                   const size_t token_no,
+                   const uint32_t ic,
+                   const struct labels label_table[],
+                   const size_t lc,
+                   uint32_t* dword)
 {
-    uint32_t dword = 0u;
-
-    dword = bit_insert(dword, 31, 27, instr_info->opcode);
+    *dword = 0;
+    *dword = bit_insert(*dword, 31, 27, instr_info->opcode);
     switch (instr_info->format)
     {
     case THREE_ADDRESS:
@@ -85,47 +91,67 @@ uint32_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[MAX_
         {
             //label: opcode rd rs1 rs2/imm
             //opcode rd rs1 rs2/imm
-            uint8_t reg_d = get_register_no(tokens[1 + has_label]);
-            uint8_t reg_s1 = get_register_no(tokens[2 + has_label]);
+            const uint8_t reg_d = get_register_no(tokens[1 + has_label]);
 
-            dword = bit_insert(dword, 25, 22, reg_d)
+            if (instr_info->opcode == OP_LD)
+            {
+                //ld rd imm rs1
+                const uint8_t reg_s1 = get_register_no(tokens[3 + has_label]);
+                uint16_t imm = 0;
+                if (!str_to_imm(tokens[2 + has_label], &imm))
+                {
+                    fprintf(stderr, "error");
+                    return false;
+                }
+                *dword = bit_insert(*dword, 25, 22, reg_d);
+                *dword = bit_insert(*dword, 26, 26, 1u);
+                *dword = bit_insert(*dword, 15, 0, imm);
+                *dword = bit_insert(*dword, 21, 18, reg_s1);
+                return true;
+            }
+
+            const uint8_t reg_s1 = get_register_no(tokens[2 + has_label]);
+
+            *dword = bit_insert(*dword, 25, 22, reg_d)
                 | bit_insert(0u, 21, 18, reg_s1);
 
-            uint8_t reg_s2 = get_register_no(tokens[3 + has_label]);
+            const uint8_t reg_s2 = get_register_no(tokens[3 + has_label]);
             if (reg_s2 < 16 && instr_info->format == THREE_ADDRESS) //R type instruction
             {
-                dword = bit_insert(dword, 17, 14, reg_s2);
-                return dword;
+                *dword = bit_insert(*dword, 17, 14, reg_s2);
+                return true;
             }
             if (reg_s2 < 16)
             {
                 fprintf(stderr, "error: expected immediate");
+                return false;
             }
             else
             {
-                dword = bit_insert(dword, 26, 26, 1u);
+                *dword = bit_insert(*dword, 26, 26, 1u);
                 uint16_t imm = 0;
                 if (!str_to_imm(tokens[3 + has_label], &imm))
                 {
                     fprintf(stderr, "error:");
+                    return false;
                 }
-                dword = bit_insert(dword, 15, 0, imm);
+                *dword = bit_insert(*dword, 15, 0, imm);
                 if (instr_info->format == THREE_ADDRESS)
                 {
-                    dword = bit_insert(dword, 17, 16, 0u);
+                    *dword = bit_insert(*dword, 17, 16, 0u);
                 }
                 else if (instr_info->format == THREE_ADDRESS_I_U)
                 {
-                    dword = bit_insert(dword, 17, 16, 1u);
+                    *dword = bit_insert(*dword, 17, 16, 1u);
                 }
                 else if (instr_info->format == THREE_ADDRESS_I_H)
                 {
-                    dword = bit_insert(dword, 17, 16, 2u);
+                    *dword = bit_insert(*dword, 17, 16, 2u);
                 }
-                return dword;
+                return true;
             }
         }
-        break;
+        return false;
     case TWO_ADDRESS:
     case TWO_ADDRESS_I_U:
     case TWO_ADDRESS_I_H:
@@ -133,113 +159,122 @@ uint32_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[MAX_
         {
             //label: opcode rd rs2/imm
             //opcode rd rs2/imm
-            uint8_t reg_d = get_register_no(tokens[1 + has_label]);
+            const uint8_t reg_d = get_register_no(tokens[1 + has_label]);
 
-            dword = bit_insert(dword, 25, 22, reg_d);
+            *dword = bit_insert(*dword, 25, 22, reg_d);
 
-            uint8_t reg_s2 = get_register_no(tokens[2 + has_label]);
+            const uint8_t reg_s2 = get_register_no(tokens[2 + has_label]);
             fprintf(stderr, "%u %s\n", reg_s2, tokens[2 + has_label]);
             if (reg_s2 < 16 && instr_info->format == TWO_ADDRESS) //R type instruction
             {
-                dword = bit_insert(dword, 17, 14, reg_s2);
-                return dword;
+                *dword = bit_insert(*dword, 17, 14, reg_s2);
+                return true;
             }
             if (reg_s2 < 16)
             {
                 fprintf(stderr, "error: expected immediate");
+                return false;
             }
             else
             {
-                dword = bit_insert(dword, 26, 26, 1u);
+                *dword = bit_insert(*dword, 26, 26, 1u);
                 uint16_t imm = 0;
 
                 if (!str_to_imm(tokens[2 + has_label], &imm))
                 {
                     fprintf(stderr, "error");
+                    return false;
                 }
 
-                dword = bit_insert(dword, 15, 0, imm);
+                *dword = bit_insert(*dword, 15, 0, imm);
                 if (instr_info->format == TWO_ADDRESS)
                 {
-                    dword = bit_insert(dword, 17, 16, 0u);
+                    *dword = bit_insert(*dword, 17, 16, 0u);
                 }
                 else if (instr_info->format == TWO_ADDRESS_I_U)
                 {
-                    dword = bit_insert(dword, 17, 16, 1u);
+                    *dword = bit_insert(*dword, 17, 16, 1u);
                 }
                 else if (instr_info->format == TWO_ADDRESS_I_H)
                 {
-                    dword = bit_insert(dword, 17, 16, 2u);
+                    *dword = bit_insert(*dword, 17, 16, 2u);
                 }
-                return dword;
+                return true;
             }
         }
-        break;
+        return false;
     case CMP_ADDRESS_FORMAT:
         if ((has_label && token_no == 4) || (!has_label && token_no == 3))
         {
             //label: cmp rs1 rs2/imm
             //cmp rs1, rs2/imm
-            uint8_t rs1 = get_register_no(tokens[1 + has_label]);
-            dword = bit_insert(dword, 21, 18, rs1);
+            const uint8_t rs1 = get_register_no(tokens[1 + has_label]);
+            *dword = bit_insert(*dword, 21, 18, rs1);
 
-            uint8_t rs2 = get_register_no(tokens[2 + has_label]);
+            const uint8_t rs2 = get_register_no(tokens[2 + has_label]);
             if (rs2 < 16) //R type instruction
             {
-                dword = bit_insert(dword, 17, 14, rs1);
-                return dword;
+                *dword = bit_insert(*dword, 17, 14, rs2);
+                return true;
             }
             //I type instruction
-            dword = bit_insert(dword, 26, 26, 1u);
+            *dword = bit_insert(*dword, 26, 26, 1u);
             uint16_t imm = 0;
-            if (str_to_imm(tokens[2 + has_label], &imm))
+            if (!str_to_imm(tokens[2 + has_label], &imm))
             {
                 fprintf(stderr, "error");
+                return false;
             }
-            dword = bit_insert(dword, 15, 0, imm);
-            return dword;
+            *dword = bit_insert(*dword, 15, 0, imm);
+            return true;
         }
-        break;
+        return false;
     case ST_ADDRESS_FORMAT:
         if ((has_label && token_no == 5) || (!has_label && token_no == 4))
         {
             //label: st rd imm rs1
             //st rd imm rs1
-            uint8_t rsd = get_register_no(tokens[1 + has_label]);
+            const uint8_t rsd = get_register_no(tokens[1 + has_label]);
 
             uint16_t imm = 0;
-            if (str_to_imm(tokens[2 + has_label], &imm))
+            if (!str_to_imm(tokens[2 + has_label], &imm))
             {
                 fprintf(stderr, "error");
+                return false;
             }
-            uint8_t rs1 = get_register_no(tokens[3 + has_label]);
+            const uint8_t rs1 = get_register_no(tokens[3 + has_label]);
 
-            dword = bit_insert(dword, 25, 22, rsd);
-            dword = bit_insert(dword, 26, 26, 1u);
-            dword = bit_insert(dword, 15, 0, imm);
-            dword = bit_insert(dword, 21, 18, rs1);
-            return dword;
+            *dword = bit_insert(*dword, 25, 22, rsd);
+            *dword = bit_insert(*dword, 26, 26, 1u);
+            *dword = bit_insert(*dword, 15, 0, imm);
+            *dword = bit_insert(*dword, 21, 18, rs1);
+            return true;
         }
-        break;
+        return false;
     case ONE_ADDRESS_OFFSET:
         if ((has_label && token_no == 3) || (!has_label && token_no == 2))
         {
             //label: opcode target_label
             //opcode target_label
-            uint32_t offset = get_branch_target(label_table, tokens[1 + has_label], lc) - ic;
-            dword = bit_insert(dword, 26, 0, offset);
-            return dword;
+            const int32_t branch_target = get_branch_target(label_table, tokens[1 + has_label], lc);
+            if (branch_target < 0)
+            {
+                return false;
+            }
+            const uint32_t offset = (uint32_t)branch_target - ic;
+            *dword = bit_insert(*dword, 26, 0, offset);
+            return true;
         }
-        break;
+        return false;
     case ZERO_ADDRESS:
         if ((has_label && token_no == 2) || (!has_label && token_no == 1))
         {
             //do nothing
-            return dword;
+            return true;
         }
-        break;
+        return false;
     }
-    return 0;
+    return true;
 }
 
 
@@ -311,7 +346,7 @@ uint32_t generate_label_table(struct labels label_table[MAX_LABELS_LIMIT], FILE*
 }
 
 
-void write_hex_instr(const char mnemonic[], char tokens[MAX_TOKEN_LIMIT][MAX_TOKEN_SIZE],
+bool write_hex_instr(const char mnemonic[], char tokens[MAX_TOKEN_LIMIT][MAX_TOKEN_SIZE],
                      const size_t token_no,
                      const uint32_t ic,
                      struct labels label_table[],
@@ -322,19 +357,26 @@ void write_hex_instr(const char mnemonic[], char tokens[MAX_TOKEN_LIMIT][MAX_TOK
     if (!instr_info)
     {
         fprintf(stderr, "SyntaxError: Invalid mnemonic\n");
-        return;
+        return false;
     }
-    const uint32_t dword = get_raw_instr(instr_info, tokens,false, token_no, ic, label_table, lc);
+    uint32_t dword;
+    if (!get_raw_instr(instr_info, tokens,false, token_no, ic, label_table, lc, &dword))
+    {
+        return false;
+    }
     fprintf(ost, "0x%08"PRIX32"\n", dword);
+    return true;
 }
 
 
-void write_prg_to_text(struct labels label_table[], const uint32_t lc, FILE* ist, FILE* ost)
+bool write_prg_to_text(struct labels label_table[], const uint32_t lc, FILE* ist, FILE* ost)
 {
+    size_t line_no = 0;
     uint32_t ic = 0; //instruction counter
     char line[MAX_LINE_SIZE];
     while (fgets(line, MAX_LINE_SIZE, ist) != NULL)
     {
+        ++line_no;
         replace_comment(line);
         char tokens[MAX_TOKEN_LIMIT][MAX_TOKEN_SIZE] = {"\0"};
         const size_t token_no = get_tokens(line, tokens);
@@ -347,29 +389,38 @@ void write_prg_to_text(struct labels label_table[], const uint32_t lc, FILE* ist
                 //instruction lies on the same line as label
                 if (tokens[1][0] != '\0')
                 {
-                    write_hex_instr(tokens[1], tokens, token_no,
-                                    ic, label_table, lc, ost);
+                    if (!write_hex_instr(tokens[1], tokens, token_no,
+                                         ic, label_table, lc, ost))
+                    {
+                        fprintf(stderr, "error on line %zu", line_no);
+                        return false;
+                    }
 
                     ++ic;
                 }
             }
             else
             {
-                write_hex_instr(tokens[0], tokens, token_no,
-                                ic, label_table, lc, ost);
+                if (!write_hex_instr(tokens[0], tokens, token_no,
+                                     ic, label_table, lc, ost))
+                {
+                    fprintf(stderr, "error on line %zu", line_no);
+                    return false;
+                }
                 ++ic;
             }
         }
     }
+    return true;
 }
 
-void read_and_write_hex(const char in_file_path[])
+bool read_and_write_hex(const char in_file_path[])
 {
     FILE* ist = fopen(in_file_path, "r"); //input stream
     if (!ist)
     {
         fprintf(stderr, "error opening file");
-        return;
+        return false;
     }
     FILE* ost = fopen("../tests/out.text", "w"); //output stream
 
@@ -377,10 +428,17 @@ void read_and_write_hex(const char in_file_path[])
 
     const uint32_t lc = generate_label_table(label_table, ist);
 
-    write_prg_to_text(label_table, lc, ist, ost);
+    if (!write_prg_to_text(label_table, lc, ist, ost))
+    {
+        fprintf(stderr, "Unable to write to hex code to output file\n");
+        fclose(ost);
+        fclose(ist);
+        return false;
+    }
 
     fclose(ost);
     fclose(ist);
+    return true;
 }
 
 static size_t get_tokens(const char* line, char tokens[MAX_TOKEN_LIMIT][MAX_TOKEN_SIZE])

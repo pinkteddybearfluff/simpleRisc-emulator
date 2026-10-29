@@ -91,7 +91,7 @@ uint32_t bit_insert(uint32_t bits, const size_t high, const size_t low, uint32_t
 //extend from 16 bits to 32 bits depending on mode
 uint32_t sign_extend(const uint16_t bits, const ExMode mode)
 {
-    assert(mode == 0 || mode == 1 || mode == 2);
+    // assert(mode == 0 || mode == 1 || mode == 2);
     switch (mode)
     {
     case 0:
@@ -105,5 +105,7 @@ uint32_t sign_extend(const uint16_t bits, const ExMode mode)
         return bits;
     case 2:
         return (uint32_t)bits << WIDTH_16;
+    default:
+        return 0;
     }
 }

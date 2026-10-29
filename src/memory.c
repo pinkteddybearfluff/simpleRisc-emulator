@@ -78,7 +78,9 @@ void load_program(Memory* mem, const char* file_path)
     uint32_t ic = 0;
     while (fgets(line, 32, ist) != NULL)
     {
-        uint32_t dword = (uint32_t)strtoul(line, NULL, 16);
+        const uint32_t dword = (uint32_t)strtoul(line, NULL, 16);
+        print_bin_u32(dword);
+        putchar('\n');
         mem_write_dword(mem, ic, dword);
         ic += 4;
     }

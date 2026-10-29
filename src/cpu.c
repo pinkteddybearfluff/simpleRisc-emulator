@@ -31,7 +31,7 @@ void cpu_init(CPU* cpu)
     cpu->halted = false;
     cpu->ir = 0x00u;
     cpu->pc = 0u;
-    cpu->regs[SP_ID] = STACK_ADDR_H; //sp | Downward growing stack
+    cpu->regs[SP_ID] = STACK_ADDR_H + 1; //sp | Downward growing stack
     cpu->cycle = 0u;
 }
 

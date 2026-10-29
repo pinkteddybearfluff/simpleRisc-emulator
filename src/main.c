@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "memory.h"
 #include "assembler.h"
@@ -13,19 +14,21 @@ int main(void)
     cpu_init(&cpu);
     mem_init(&mem);
 
-    read_and_write_hex("../tests/prg1.asm");
+    if (!read_and_write_hex("../tests/prg1.asm"))
+    {
+        return EXIT_FAILURE;
+    }
 
     load_program(&mem, "../tests/out.text");
 
-    print_memory_range(&mem, 0, 8);
-
-    // print_cpu_state(&cpu);
-
+    // uint32_t shift_value = 2;
+    // const uint32_t mask = ((1u << shift_value) - 1u) << (32u -
+    //     shift_value);
+    // // cpu->regs[instr.rd] = (cpu->regs[instr.rs1] >> shift_value) | mask;
+    // print_bin_u32(mask);
     cpu_run(&cpu, &mem);
 
-    // print_cpu_state(&cpu);
+    print_memory_range(&mem, STACK_ADDR_H - 19, STACK_ADDR_H);
 
-    // register_dump(&cpu);
-
-    return 0;
+    return EXIT_SUCCESS;
 }
