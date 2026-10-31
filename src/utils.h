@@ -7,6 +7,27 @@
 
 #include "../src/isa.h"
 
+static const char* bold_black = "\x1b[1;30m";
+static const char* bold_red = "\x1b[1;31m";
+static const char* bold_green = "\x1b[1;32m";
+static const char* bold_yellow = "\x1b[1;33m";
+static const char* bold_blue = "\x1b[1;34m";
+static const char* bold_purple = "\x1b[1;35m";
+static const char* bold_cyan = "\x1b[1;36m";
+static const char* bold_white = "\x1b[1;37m";
+
+static const char* black = "\x1b[0;30m";
+static const char* red = "\x1b[0;31m";
+static const char* green = "\x1b[0;32m";
+static const char* yellow = "\x1b[0;33m";
+static const char* blue = "\x1b[0;34m";
+static const char* purple = "\x1b[0;35m";
+static const char* cyan = "\x1b[0;36m";
+static const char* white = "\x1b[0;37m";
+
+static const char* rst_str = "\x1b[0m";
+
+
 void print_bin_d16(int16_t value);
 void print_bin_u16(uint16_t value);
 // void print_hex_d16(const int16_t value);

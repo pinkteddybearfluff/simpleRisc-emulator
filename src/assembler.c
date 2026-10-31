@@ -9,6 +9,8 @@
 #include "utils.h"
 #include "../src/isa.h"
 
+#define MAX_ERROR_MSG_LIMIT 340u
+#define MAX_SUB_ERROR_MSG_LIMIT 256u
 #define MAX_LABELS_LIMIT 2048u
 
 struct labels
@@ -49,7 +51,7 @@ LabelLookupStatus get_branch_target(const struct labels label_table[], const cha
     {
         if (!strcmp(label, label_table[i].label))
         {
-            fprintf(stderr, "Label = %s Target = %d\n", label_table[i].label, label_table[i].target_addr);
+            // fprintf(stderr, "Label = %s Target = %d\n", label_table[i].label, label_table[i].target_addr);
             *label_target_addr = label_table[i].target_addr;
             return LABEL_FOUND;
         }
@@ -77,13 +79,14 @@ asm_result_t str_to_imm(const char* str, uint16_t* imm, char error_msg[])
 
     if (*end_ptr != '\0' || end_ptr == str)
     {
-        sprintf(error_msg, "invalid immediate form '%s'", str);
+        snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "invalid immediate form '%s%s%s'", bold_red, str, rst_str);
         return ASM_ERROR_BAD_IMMEDIATE_STRING;
     }
     const bool range_error = (errno == ERANGE);
     if (integer > (int64_t)INT16_MAX || integer < (int64_t)INT16_MIN || range_error)
     {
-        sprintf(error_msg, "immediate '%s' doesn't fit in 16 bit signed integer range", str);
+        snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT,
+                 "immediate '%s%s%s' doesn't fit in 16 bit signed integer range", bold_purple, str, rst_str);
         return ASM_ERROR_IMMEDIATE_RANGE;
     }
     *imm = (uint16_t)((uint64_t)integer & 0xffffu);
@@ -106,7 +109,7 @@ asm_result_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[
     case THREE_ADDRESS:
     case THREE_ADDRESS_I_U:
     case THREE_ADDRESS_I_H:
-        if (token_no == 4 + has_label)
+        if (token_no == 4u + has_label)
         {
             //label: opcode rd rs1 rs2/imm
             //opcode rd rs1 rs2/imm
@@ -142,7 +145,8 @@ asm_result_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[
             }
             if (reg_s2 < 16)
             {
-                sprintf(error_msg, "expected immediate at '%s'", tokens[2 + has_label]);
+                snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "expected immediate at '%s%s%s'",
+                         bold_white, tokens[2 + has_label], rst_str);
                 return ASM_ERROR_EXPECTED_IMMEDIATE;
             }
             else
@@ -170,7 +174,7 @@ asm_result_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[
                 return ASM_SUCCESS;
             }
         }
-        if (instr_info->opcode == OP_LD && (token_no == 3 + has_label))
+        if (instr_info->opcode == OP_LD && (token_no == 3u + has_label))
         {
             //label: ld rd rs1
             //ld rd rs1
@@ -183,12 +187,13 @@ asm_result_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[
             *dword = bit_insert(*dword, 21, 18, rs1);
             return ASM_SUCCESS;
         }
-        sprintf(error_msg, "operands do not match for '%s ... '", tokens[0 + has_label]);
+        snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "operands do not match for '%s%s ... %s'",
+                 green, tokens[0 + has_label], rst_str);
         return ASM_ERROR_OPERANDS_NOT_MATCHING;
     case TWO_ADDRESS:
     case TWO_ADDRESS_I_U:
     case TWO_ADDRESS_I_H:
-        if (token_no == 3 + has_label)
+        if (token_no == 3u + has_label)
         {
             //label: opcode rd rs2/imm
             //opcode rd rs2/imm
@@ -204,7 +209,8 @@ asm_result_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[
             }
             if (reg_s2 < 16)
             {
-                sprintf(error_msg, "expected immediate at '%s'", tokens[2 + has_label]);
+                snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "expected immediate at '%s%s%s'",
+                         bold_white, tokens[2 + has_label], rst_str);
                 return ASM_ERROR_EXPECTED_IMMEDIATE;
             }
             else
@@ -234,10 +240,11 @@ asm_result_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[
                 return ASM_SUCCESS;
             }
         }
-        sprintf(error_msg, "operands do not match for '%s ... '", tokens[0 + has_label]);
+        snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "operands do not match for '%s%s ... %s'",
+                 green, tokens[0 + has_label], rst_str);
         return ASM_ERROR_OPERANDS_NOT_MATCHING;
     case CMP_ADDRESS_FORMAT:
-        if (token_no == 3 + has_label)
+        if (token_no == 3u + has_label)
         {
             //label: cmp rs1 rs2/imm
             //cmp rs1, rs2/imm
@@ -261,10 +268,11 @@ asm_result_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[
             *dword = bit_insert(*dword, 15, 0, imm);
             return ASM_SUCCESS;
         }
-        sprintf(error_msg, "operands do not match for '%s ... '", tokens[0 + has_label]);
+        snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "operands do not match for '%s%s ... %s'",
+                 green, tokens[0 + has_label], rst_str);
         return ASM_ERROR_OPERANDS_NOT_MATCHING;
     case ST_ADDRESS_FORMAT:
-        if (token_no == 4 + has_label)
+        if (token_no == 4u + has_label)
         {
             //label: st rd imm rs1
             //st rd imm rs1
@@ -284,7 +292,7 @@ asm_result_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[
             *dword = bit_insert(*dword, 21, 18, rs1);
             return ASM_SUCCESS;
         }
-        if (token_no == 3 + has_label)
+        if (token_no == 3u + has_label)
         {
             //label: st rsd rs1
             //st rsd rs1
@@ -297,10 +305,11 @@ asm_result_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[
             *dword = bit_insert(*dword, 21, 18, rs1);
             return ASM_SUCCESS;
         }
-        sprintf(error_msg, "operands do not match for '%s ... '", tokens[0 + has_label]);
+        snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "operands do not match for '%s%s ... %s'",
+                 green, tokens[0 + has_label], rst_str);
         return ASM_ERROR_OPERANDS_NOT_MATCHING;
     case ONE_ADDRESS_OFFSET:
-        if (token_no == 2 + has_label)
+        if (token_no == 2u + has_label)
         {
             //label: opcode target_label
             //opcode target_label
@@ -309,22 +318,25 @@ asm_result_t get_raw_instr(const InstructionInfo* instr_info, const char tokens[
                                                                &label_target_addr);
             if (label_status == LABEL_NOT_FOUND)
             {
-                sprintf(error_msg, "label '%s' not found", tokens[1 + has_label]);
+                snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "label '%s%s%s' not found",
+                         bold_cyan, tokens[1 + has_label], rst_str);
                 return ASM_ERROR_LABEL_NOT_FOUND;
             }
             const uint32_t offset = label_target_addr - ic;
             *dword = bit_insert(*dword, 26, 0, offset);
             return ASM_SUCCESS;
         }
-        sprintf(error_msg, "operands do not match for '%s ... '", tokens[0 + has_label]);
+        snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "operands do not match for '%s%s ... %s'",
+                 green, tokens[0 + has_label], rst_str);
         return ASM_ERROR_OPERANDS_NOT_MATCHING;
     case ZERO_ADDRESS:
-        if (token_no == 1 + has_label)
+        if (token_no == 1u + has_label)
         {
             //do nothing
             return ASM_SUCCESS;
         }
-        sprintf(error_msg, "operands do not match for '%s ... '", tokens[0 + has_label]);
+        snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "operands do not match for '%s%s ... %s'",
+                 green, tokens[0 + has_label], rst_str);
         return ASM_ERROR_OPERANDS_NOT_MATCHING;
     }
     return ASM_SUCCESS;
@@ -387,7 +399,8 @@ static asm_result_t replace_comment(char line[])
 }
 
 //rewinds the input stream
-asm_result_t generate_label_table(struct labels label_table[MAX_LABELS_LIMIT], uint32_t* lc, FILE* ist)
+asm_result_t generate_label_table(struct labels label_table[MAX_LABELS_LIMIT], uint32_t* lc, FILE* ist,
+                                  char error_msg[])
 {
     size_t line_no = 0;
     *lc = 0;
@@ -398,7 +411,8 @@ asm_result_t generate_label_table(struct labels label_table[MAX_LABELS_LIMIT], u
         ++line_no;
         if (replace_comment(line) != ASM_SUCCESS)
         {
-            fprintf(stderr, "comment not terminated on line %zu\n", line_no);
+            snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT,
+                     "comment not terminated on line %zu", line_no);
             return ASM_ERROR_COMMENT_NOT_TERMINATED;
         }
         char tokens[MAX_TOKEN_LIMIT][MAX_TOKEN_SIZE] = {"\0"};
@@ -447,7 +461,7 @@ asm_result_t write_hex_instr(const char mnemonic[], char tokens[MAX_TOKEN_LIMIT]
     const InstructionInfo* instr_info = get_instr_info(mnemonic);
     if (!instr_info)
     {
-        sprintf(error_msg, "invalid instruction '%s'", mnemonic);
+        snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "invalid instruction '%s%s%s'", bold_white, mnemonic, rst_str);
         return ASM_ERROR_INVALID_INSTR;
     }
     uint32_t dword;
@@ -457,22 +471,24 @@ asm_result_t write_hex_instr(const char mnemonic[], char tokens[MAX_TOKEN_LIMIT]
     {
         return raw_instr_status;
     }
-    fprintf(ost, "0x%08" PRIx32 "\n", dword);
+    fwrite(&dword, sizeof(uint32_t), 1, ost);
     return ASM_SUCCESS;
 }
 
 
-bool write_prg_to_text(struct labels label_table[], const uint32_t lc, FILE* ist, FILE* ost)
+bool write_prg_to_text(struct labels label_table[], const uint32_t lc, FILE* ist, FILE* ost, char error_msg[])
 {
     size_t line_no = 0;
     uint32_t ic = 0; //instruction counter
     char line[MAX_LINE_SIZE];
+    char sub_error_msg[MAX_SUB_ERROR_MSG_LIMIT];
+    asm_result_t instr_write_status = ASM_SUCCESS;
     while (fgets(line, MAX_LINE_SIZE, ist) != NULL)
     {
         ++line_no;
         if (replace_comment(line) != ASM_SUCCESS)
         {
-            fprintf(stderr, "error: comment not terminated on line %zu\n", line_no);
+            snprintf(error_msg, MAX_SUB_ERROR_MSG_LIMIT, "comment not terminated on line %zu", line_no);
             return ASM_ERROR_COMMENT_NOT_TERMINATED;
         }
         char tokens[MAX_TOKEN_LIMIT][MAX_TOKEN_SIZE] = {"\0"};
@@ -486,24 +502,11 @@ bool write_prg_to_text(struct labels label_table[], const uint32_t lc, FILE* ist
                 //instruction lies on the same line as label
                 if (tokens[1][0] != '\0')
                 {
-                    char error_msg[256];
-                    const asm_result_t instr_write_status = write_hex_instr(tokens[1], tokens, token_no,
-                                                                            ic,true, label_table, lc, ost, error_msg);
+                    instr_write_status = write_hex_instr(tokens[1], tokens, token_no,
+                                                         ic,true, label_table, lc, ost, sub_error_msg);
                     if (instr_write_status != ASM_SUCCESS)
                     {
-                        switch (instr_write_status)
-                        {
-                        case ASM_ERROR_COMMENT_NOT_TERMINATED:
-                        case ASM_ERROR_INVALID_INSTR:
-                        case ASM_ERROR_EXPECTED_REGISTER:
-                        case ASM_ERROR_EXPECTED_IMMEDIATE:
-                        case ASM_ERROR_IMMEDIATE_RANGE:
-                        case ASM_ERROR_BAD_IMMEDIATE_STRING:
-                        case ASM_ERROR_OPERANDS_NOT_MATCHING:
-                        case ASM_ERROR_LABEL_NOT_FOUND:
-                            fprintf(stderr, "error: %s, line: %zu\n", error_msg, line_no);
-                        }
-                        return instr_write_status;
+                        break;
                     }
 
                     ++ic;
@@ -511,28 +514,29 @@ bool write_prg_to_text(struct labels label_table[], const uint32_t lc, FILE* ist
             }
             else
             {
-                char error_msg[256];
-                const asm_result_t instr_write_status = write_hex_instr(tokens[0], tokens, token_no,
-                                                                        ic, false, label_table, lc, ost, error_msg);
+                instr_write_status = write_hex_instr(tokens[0], tokens, token_no,
+                                                     ic, false, label_table, lc, ost, sub_error_msg);
                 if (instr_write_status != ASM_SUCCESS)
                 {
-                    switch (instr_write_status)
-                    {
-                    case ASM_ERROR_COMMENT_NOT_TERMINATED:
-                    case ASM_ERROR_INVALID_INSTR:
-                    case ASM_ERROR_EXPECTED_REGISTER:
-                    case ASM_ERROR_EXPECTED_IMMEDIATE:
-                    case ASM_ERROR_IMMEDIATE_RANGE:
-                    case ASM_ERROR_BAD_IMMEDIATE_STRING:
-                    case ASM_ERROR_OPERANDS_NOT_MATCHING:
-                    case ASM_ERROR_LABEL_NOT_FOUND:
-                        fprintf(stderr, "error: %s, line: %zu\n", error_msg, line_no);
-                    }
-                    return instr_write_status;
+                    break;
                 }
                 ++ic;
             }
         }
+    }
+    switch (instr_write_status)
+    {
+    case ASM_ERROR_COMMENT_NOT_TERMINATED:
+    case ASM_ERROR_INVALID_INSTR:
+    case ASM_ERROR_EXPECTED_REGISTER:
+    case ASM_ERROR_EXPECTED_IMMEDIATE:
+    case ASM_ERROR_IMMEDIATE_RANGE:
+    case ASM_ERROR_BAD_IMMEDIATE_STRING:
+    case ASM_ERROR_OPERANDS_NOT_MATCHING:
+    case ASM_ERROR_LABEL_NOT_FOUND:
+        snprintf(error_msg, MAX_ERROR_MSG_LIMIT, "%s, line: %zu\n", sub_error_msg, line_no);
+        return instr_write_status;
+    default: break;
     }
     return ASM_SUCCESS;
 }
@@ -542,26 +546,32 @@ bool read_and_write_hex(const char file_path[])
     FILE* ist = fopen(file_path, "r"); //input stream
     if (!ist)
     {
-        fprintf(stderr, "error: file %s not found", file_path);
+        fprintf(stderr, "%sassembler error:%s file '%s%s%s' not found", bold_red, rst_str, bold_white, file_path,
+                rst_str);
         return false;
     }
-    FILE* ost = fopen("../tests/out.text", "w"); //output stream
+    FILE* ost = fopen("../tests/out.bin", "wb"); //output stream
 
     struct labels label_table[MAX_LABELS_LIMIT];
 
+    char error_msg[MAX_SUB_ERROR_MSG_LIMIT];
     uint32_t lc;
-    const asm_result_t lt_result = generate_label_table(label_table, &lc, ist);
+    const asm_result_t lt_result = generate_label_table(label_table, &lc, ist, error_msg);
     if (lt_result != ASM_SUCCESS)
     {
+        fprintf(stderr, "%s%s%s\n", bold_white, file_path, rst_str);
+        fprintf(stderr, "%sassembler error:%s %s\n", bold_red, rst_str, error_msg);
         fclose(ost);
         fclose(ist);
         return false;
     }
 
-    asm_result_t file_write_status = write_prg_to_text(label_table, lc, ist, ost);
+    const asm_result_t file_write_status = write_prg_to_text(label_table, lc, ist, ost, error_msg);
     if (file_write_status != ASM_SUCCESS)
     {
-        fprintf(stderr, "Hex code not written to output file\n");
+        fprintf(stderr, "%s%s%s\n", bold_white, file_path, rst_str);
+        fprintf(stderr, "%sassembler error:%s %s\n", bold_red, rst_str, error_msg);
+        fprintf(stderr, "unable to assemble program\n");
         fclose(ost);
         fclose(ist);
         return false;

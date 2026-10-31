@@ -1,6 +1,6 @@
 main:
     mov r0, 0x800   /* pointer to first element of array p */
-    mov r1, 10  /* size of array n */
+    mov r1, 9  /* size of array n */
     call fill_array
 
     call reverse_array

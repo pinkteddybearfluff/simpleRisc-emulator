@@ -1,2 +1,3 @@
 main:
-    div r0, r0, r0
+    mov 14, 14
+    halt

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "cpu.h"
 #include "utils.h"
 
 void print_memory_range(const Memory* mem, const uint32_t start_addr, const uint32_t end_addr)
@@ -88,20 +89,33 @@ void mem_init(Memory* mem)
 
 void load_program(Memory* mem, const char* file_path)
 {
-    FILE* ist = fopen(file_path, "r");
+    FILE* ist = fopen(file_path, "rb");
     if (!ist)
     {
         perror("error: cannot open file");
         return;
     }
 
-    char line[32];
     uint32_t ic = 0;
-    while (fgets(line, 32, ist) != NULL)
+    while (1)
     {
-        const uint32_t dword = (uint32_t)strtoul(line, NULL, 16);
-        mem_write_dword(mem, ic, dword);
-        ic += 4;
+        uint32_t dword;
+        size_t n = fread(&dword, sizeof(dword), 1, ist);
+
+        if (n == 1)
+        {
+            mem_write_dword(mem, TEXT_ADDR_L + ic * 4, dword);
+            ++ic;
+        }
+        else
+        {
+            if (feof(ist))
+            {
+                break;
+            }
+            if (ferror(ist)) { perror("loading error:"); }
+            break;
+        }
     }
 
     fclose(ist);

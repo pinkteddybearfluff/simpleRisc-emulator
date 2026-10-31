@@ -9,7 +9,7 @@
 
 void register_dump(const CPU* cpu)
 {
-    puts("\e[0;34m");
+    puts(blue);
     for (size_t i = 0; i < REGISTER_COUNT / 2; ++i)
     {
         printf("r%zu:\t%10" PRId32 "\t", i, cpu->regs[i]);
@@ -20,7 +20,7 @@ void register_dump(const CPU* cpu)
 
         putchar('\n');
     }
-    puts("\e[0m");
+    puts(rst_str);
 }
 
 void cpu_init(CPU* cpu)
@@ -44,8 +44,8 @@ void cpu_step(CPU* cpu, Memory* mem)
             cpu->halted = true;
             fprintf(
                 stderr,
-                "\e[1;31m cpu error:\e[0m at instruction location: 0x%08" PRIx32
-                ", pc trying to access non-text memory\n",
+                "%scpu error:%s at instruction location: 0x%08" PRIx32
+                ", pc trying to access non-text memory\n", bold_red, rst_str,
                 cpu->pc);
             print_cpu_state(cpu);
             return;
@@ -55,7 +55,7 @@ void cpu_step(CPU* cpu, Memory* mem)
         if (cpu_state != CPU_SUCCESS)
         {
             cpu->halted = true;
-            fprintf(stderr, "\e[1;31m cpu error:\e[0m at instruction location: 0x%08" PRIx32", ", cpu->pc);
+            fprintf(stderr, "%scpu error:%s at instruction location: 0x%08" PRIx32", ", bold_red, rst_str, cpu->pc);
             {
                 switch (cpu_state)
                 {
@@ -93,12 +93,12 @@ void cpu_run(CPU* cpu, Memory* mem)
 
 void print_cpu_state(const CPU* cpu)
 {
-    puts("\e[0;30m");
+    puts(black);
     puts("-------------------------Status-----------------------");
 
-    puts("\e[0;31m");
+    puts(red);
     printf("Running : %s\n", cpu->halted ? "false" : "true");
-    puts("\e[0;35m");
+    puts(purple);
     fputs("PC: ", stdout);
     print_hex_u32(cpu->pc);
     fprintf(stdout, "\t%" PRIu32" ", cpu->pc);
@@ -110,4 +110,5 @@ void print_cpu_state(const CPU* cpu)
     printf("\nEquals flag: %s\tGreater Than flag: %s\n", cpu->equal_flag ? "true" : "false",
            cpu->gt_flag ? "true" : "false");
     register_dump(cpu);
+    puts(rst_str);
 }
