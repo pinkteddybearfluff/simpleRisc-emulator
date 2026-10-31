@@ -29,6 +29,27 @@ void print_memory_range(const Memory* mem, const uint32_t start_addr, const uint
     puts("\e[0m");
 }
 
+void print_memory_content(const Memory* mem, const uint32_t addr)
+{
+    uint32_t value = mem_read_dword(mem, addr);
+    printf("%8" PRIu32, value);
+}
+
+void print_memory_range_2(const Memory* mem, const uint32_t start_addr, const uint32_t end_addr)
+{
+    const uint32_t start = (start_addr / 4) * 4;
+    const uint32_t end = (end_addr / 4) * 4 + 3;
+
+    puts("\e[0;35m");
+    for (uint32_t i = start; i <= end; i += 4)
+    {
+        printf("%" PRIu32 ": ", i);
+        print_memory_content(mem, i);
+        putchar('\n');
+    }
+    puts("\e[0m");
+}
+
 uint8_t mem_read_byte(const Memory* mem, const uint32_t addr)
 {
     assert(addr < MAX_MEM_SIZE);
@@ -79,8 +100,6 @@ void load_program(Memory* mem, const char* file_path)
     while (fgets(line, 32, ist) != NULL)
     {
         const uint32_t dword = (uint32_t)strtoul(line, NULL, 16);
-        print_bin_u32(dword);
-        putchar('\n');
         mem_write_dword(mem, ic, dword);
         ic += 4;
     }

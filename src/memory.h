@@ -16,6 +16,8 @@ struct memory
 
 //start and end address included
 void print_memory_range(const Memory* mem, uint32_t start_addr, uint32_t end_addr);
+//prints address and content in decimal values
+void print_memory_range_2(const Memory* mem, uint32_t start_addr, uint32_t end_addr);
 
 void mem_init(Memory* mem);
 

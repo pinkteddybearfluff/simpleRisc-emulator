@@ -4,9 +4,9 @@
 #include <stdbool.h>
 
 #define MAX_LINE_SIZE 200u
-#define MAX_TOKEN_SIZE 15u
+#define MAX_TOKEN_SIZE 20u
 #define MAX_TOKEN_LIMIT 5u
 
-bool read_and_write_hex(const char in_file_path[]);
+bool read_and_write_hex(const char file_path[]);
 
 #endif //SIMPRISC_ASSEMBLER_H

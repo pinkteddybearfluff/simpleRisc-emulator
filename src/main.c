@@ -14,21 +14,18 @@ int main(void)
     cpu_init(&cpu);
     mem_init(&mem);
 
-    if (!read_and_write_hex("../tests/prg1.asm"))
+    if (!read_and_write_hex("../tests/test.asm"))
     {
         return EXIT_FAILURE;
     }
-
     load_program(&mem, "../tests/out.text");
 
-    // uint32_t shift_value = 2;
-    // const uint32_t mask = ((1u << shift_value) - 1u) << (32u -
-    //     shift_value);
-    // // cpu->regs[instr.rd] = (cpu->regs[instr.rs1] >> shift_value) | mask;
-    // print_bin_u32(mask);
     cpu_run(&cpu, &mem);
 
-    print_memory_range(&mem, STACK_ADDR_H - 19, STACK_ADDR_H);
+    print_cpu_state(&cpu);
+
+
+    // print_memory_range_2(&mem, DATA_ADDR_L, DATA_ADDR_L + 10 * 4);
 
     return EXIT_SUCCESS;
 }

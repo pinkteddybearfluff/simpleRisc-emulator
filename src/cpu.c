@@ -39,16 +39,43 @@ void cpu_step(CPU* cpu, Memory* mem)
 {
     if (!cpu->halted && cpu->cycle < MAX_CYCLES)
     {
-        if (cpu->pc >= TEXT_ADDR_H)
+        if (cpu->pc > TEXT_ADDR_H || cpu->pc < TEXT_ADDR_L)
         {
             cpu->halted = true;
+            fprintf(
+                stderr,
+                "\e[1;31m cpu error:\e[0m at instruction location: 0x%08" PRIx32
+                ", pc trying to access non-text memory\n",
+                cpu->pc);
+            print_cpu_state(cpu);
             return;
         }
         cpu->ir = mem_read_dword(mem, cpu->pc);
-        if (!execute(cpu, mem, decode_instr(cpu->ir)))
+        cpu_status_t cpu_state = execute(cpu, mem, decode_instr(cpu->ir));
+        if (cpu_state != CPU_SUCCESS)
         {
             cpu->halted = true;
-            fprintf(stderr, "Error (PLACEHOLDER)");
+            fprintf(stderr, "\e[1;31m cpu error:\e[0m at instruction location: 0x%08" PRIx32", ", cpu->pc);
+            {
+                switch (cpu_state)
+                {
+                case CPU_ERROR_DIVISION_BY_ZERO:
+                    fprintf(stderr, "division by zero\n");
+                    break;
+                case CPU_ERROR_MEMORY_ACCESS:
+                    fprintf(stderr, "cannot read/write to requested memory location\n.");
+                    break;
+                case CPU_ERROR_INVALID_OPCODE:
+                    fprintf(stderr, "invalid instruction opcode\n");
+                    break;
+                case CPU_ERROR_INVALID_REGISTER:
+                    fprintf(stderr, "invalid register\n");
+                    break;
+                case CPU_ERROR_SHIFT_VALUE:
+                    fprintf(stderr, "invalid shift value, shift value cannot exceed 32\n");
+                    break;
+                }
+            }
             return;
         }
         ++cpu->cycle;
@@ -60,7 +87,7 @@ void cpu_run(CPU* cpu, Memory* mem)
     while (!cpu->halted && cpu->cycle < MAX_CYCLES)
     {
         cpu_step(cpu, mem);
-        print_cpu_state(cpu);
+        // print_cpu_state(cpu);
     }
 }
 
@@ -74,6 +101,7 @@ void print_cpu_state(const CPU* cpu)
     puts("\e[0;35m");
     fputs("PC: ", stdout);
     print_hex_u32(cpu->pc);
+    fprintf(stdout, "\t%" PRIu32" ", cpu->pc);
     putchar('\n');
     fputs("IR: ",stdout);
     print_hex_u32(cpu->ir);

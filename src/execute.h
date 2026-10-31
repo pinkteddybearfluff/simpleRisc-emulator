@@ -5,6 +5,6 @@
 #include "../src/memory.h"
 #include "../src/decode.h"
 
-bool execute(CPU* cpu, Memory* mem, DecodedInstr instr);
+cpu_status_t execute(CPU* cpu, Memory* mem, DecodedInstr instr);
 
 #endif //SIMPRISC_EXECUTE_H

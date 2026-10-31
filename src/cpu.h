@@ -9,7 +9,7 @@
 #define RA_ID 15
 #define SP_ID 14
 
-#define MAX_CYCLES 10000u
+#define MAX_CYCLES 513u
 
 //LOGICALLY DEFINED LAYOUT
 #define TEXT_ADDR_L 0x0000u
@@ -33,6 +33,16 @@ struct cpu
     bool halted;
     size_t cycle;
 };
+
+typedef enum
+{
+    CPU_SUCCESS,
+    CPU_ERROR_DIVISION_BY_ZERO,
+    CPU_ERROR_MEMORY_ACCESS,
+    CPU_ERROR_INVALID_OPCODE,
+    CPU_ERROR_INVALID_REGISTER,
+    CPU_ERROR_SHIFT_VALUE,
+} cpu_status_t;
 
 void cpu_init(CPU* cpu);
 

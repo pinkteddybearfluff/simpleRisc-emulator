@@ -1,0 +1,2 @@
+main:
+    div r0, r0, r0
